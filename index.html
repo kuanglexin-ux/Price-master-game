@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商业估价大师 - 动态盲盒轮转版</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --accent-primary: #6366f1;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --blind-box-bg: linear-gradient(135deg, #1e1b4b 0%, #2e1065 100%);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+        
+        header {
+            background-color: rgba(30, 41, 59, 0.9);
+            padding: 20px 40px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 100;
+        }
+        .logo { font-size: 24px; font-weight: 800; color: #818cf8; letter-spacing: 1px; }
+        .nav-btn { background-color: transparent; border: 1px solid var(--accent-primary); color: var(--text-main); padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+        .nav-btn:hover { background-color: var(--accent-primary); }
+        
+        .container { flex: 1; max-width: 1400px; width: 100%; margin: 0 auto; padding: 40px 20px; }
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .industry-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; margin-top: 40px; }
+        .industry-card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 40px; text-align: center; cursor: pointer; transition: 0.3s; }
+        .industry-card:hover { transform: translateY(-5px); border-color: var(--accent-primary); }
+        .industry-icon { font-size: 48px; margin-bottom: 20px; }
+        .industry-title { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
+        .industry-desc { color: var(--text-muted); font-size: 14px; }
+
+        .options-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .options-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+        
+        /* 盲盒状态样式 */
+        .blind-box {
+            background: var(--blind-box-bg);
+            border: 2px dashed #818cf8;
+            border-radius: 12px;
+            height: 312px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .blind-box:hover {
+            transform: scale(1.03);
+            border-color: var(--accent-warning);
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);
+        }
+        .blind-box-question {
+            font-size: 72px;
+            font-weight: 900;
+            color: var(--accent-warning);
+            text-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+            margin-bottom: 15px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .blind-box-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: 2px;
+            background: rgba(0,0,0,0.2);
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* 揭晓后的产品卡片样式 */
+        .product-card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; cursor: pointer; transition: 0.3s; position: relative; height: 312px; display: flex; flex-direction: column; }
+        .product-card:hover { transform: scale(1.03); border-color: var(--accent-primary); }
+        .product-img-holder { width: 100%; height: 180px; background-color: #000; position: relative; }
+        .product-img-holder img { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; transition: 0.3s; }
+        .product-card:hover .product-img-holder img { opacity: 1; }
+        
+        .tag-num { position:absolute; bottom:8px; left:8px; font-size:12px; background:rgba(0,0,0,0.7); color:white; padding:4px 8px; border-radius:4px; z-index: 10;}
+        .product-card.revealed .tag-num { background-color: var(--accent-success); }
+
+        .product-info { padding: 15px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .product-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--accent-primary); font-weight: 600; margin-bottom: 6px; }
+        .product-city { background: rgba(99, 102, 241, 0.1); padding: 2px 6px; border-radius: 4px; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .product-shop { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
+        .product-name { font-size: 15px; font-weight: 700; line-height: 1.4; height: 42px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+        /* 主持人弹窗 */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: 0.3s; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-container { background-color: var(--bg-card); width: 90%; max-width: 600px; border-radius: 16px; padding: 30px; }
+        .modal-title { font-size: 22px; font-weight: 800; color: var(--accent-warning); text-align: center; }
+        .modal-target-info { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 15px; margin: 20px 0; border-left: 4px solid var(--accent-primary); }
+        .input-price { width: 100%; background: var(--bg-dark); border: 1px solid var(--border-color); color: white; padding: 12px; border-radius: 8px; font-size: 18px; margin-top: 10px; }
+        .modal-actions { display: flex; gap: 15px; margin-top: 25px; }
+        .btn { flex: 1; padding: 12px; border-radius: 8px; font-size: 16px; cursor: pointer; border: none; font-weight: bold;}
+        .btn-secondary { background-color: #475569; color: white; }
+        .btn-primary { background-color: var(--accent-primary); color: white; }
+        .reveal-box { display: none; text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--border-color); }
+        .price-big { font-size: 36px; font-weight: 900; color: var(--accent-success); margin: 10px 0; }
+        
+        /* 调试/状态提示小组件（仅主持人可见，可删除） */
+        .status-badge {
+            position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.6); 
+            padding: 8px 12px; border-radius: 20px; font-size: 12px; color: var(--text-muted);
+            border: 1px solid var(--border-color); z-index: 900;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">COMMERCIAL PRICE MASTER</div>
+        <button class="nav-btn" id="backToIndustryBtn" style="display: none;" onclick="showView('industry-view')">返回行业选择</button>
+    </header>
+
+    <div class="container">
+        <!-- 行业选择视图 -->
+        <section id="industry-view" class="view-section active">
+            <h2 style="text-align: center; font-size: 28px; margin-bottom: 10px;">请选择行业赛道</h2>
+            <p style="text-align: center; color: var(--text-muted); margin-bottom: 30px;">点击下方任意行业，开启盲盒估价挑战</p>
+            <div class="industry-grid">
+                <div class="industry-card" onclick="enterIndustry('catering')">
+                    <div class="industry-icon">🍔</div>
+                    <div class="industry-title">餐饮行业 (Catering)</div>
+                    <div class="industry-desc">从街头小吃到顶级餐厅的商业价值</div>
+                </div>
+                <div class="industry-card" onclick="enterIndustry('clothing')">
+                    <div class="industry-icon">👔</div>
+                    <div class="industry-title">服装行业 (Clothing)</div>
+                    <div class="industry-desc">潮流尖端与大众服饰背后的溢价</div>
+                </div>
+                <div class="industry-card" onclick="enterIndustry('hospitality')">
+                    <div class="industry-icon">🏨</div>
+                    <div class="industry-title">酒店行业 (Hospitality)</div>
+                    <div class="industry-desc">空间与服务的定价美学</div>
+                </div>
+                <div class="industry-card" onclick="enterIndustry('cultural')">
+                    <div class="industry-icon">🎁</div>
+                    <div class="industry-title">文创行业 (Cultural)</div>
+                    <div class="industry-desc">文化赋能的财富密码</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 产品网格视图 -->
+        <section id="options-view" class="view-section">
+            <div class="options-header">
+                <h2 id="current-industry-title">当前行业</h2>
+                <span style="color: var(--text-muted); font-size: 14px;">点击盲盒解锁产品图片，再次点击开始估价</span>
+            </div>
+            <div class="options-grid" id="products-container"></div>
+        </section>
+    </div>
+
+    <!-- 主持人弹窗 -->
+    <div class="modal-overlay" id="hostModal">
+        <div class="modal-container">
+            <div class="modal-title">🚨 主持人控制面板</div>
+            <div class="modal-target-info" id="modalTargetDetails"></div>
+            
+            <label style="font-size:14px; color:var(--text-muted);">现场选手最终报价 (元)：</label>
+            <input type="number" id="playerBid" class="input-price" placeholder="请输入选手的报价">
+            
+            <div class="modal-actions" id="initialActions">
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="confirmAndReveal()">锁定并揭晓价格</button>
+            </div>
+
+            <div class="reveal-box" id="revealBox">
+                <div>真实市场价格为：</div>
+                <div class="price-big">¥ <span id="realPriceVal">0.00</span></div>
+                <div id="resultAnalysisText" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-top:10px;"></div>
+                <button class="btn btn-secondary" style="width: 100%; margin-top:20px;" onclick="closeModal()">返回大屏</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 左下角状态提示 -->
+    <div class="status-badge" id="shiftStatusInfo">当前盲盒推演轮数: 0</div>
+
+    <script>
+        // ==========================================
+        // 【请把 output_for_html.txt 里面的代码粘贴替换到这里】
+        const gameData = {
+    "catering": {
+        "title": "餐饮行业 (Catering)",
+        "items": [
+            {
+                "id": "cat_1",
+                "shop": "费大厨 Fei Dachu",
+                "city": "北京朝阳区合生汇 HeShengHui, Chaoyang District, Beijing",
+                "product": "辣椒炒肉 Stir-Fried Pork with Chili",
+                "price": 68.0,
+                "image": "./images/1-1.jpg"
+            },
+            {
+                "id": "cat_2",
+                "shop": "外婆家 Grandma's Home",
+                "city": "杭州上城区西湖天地 West Lake World, Shangcheng District, Hangzhou",
+                "product": "叫花鸡 Beggar's chicken",
+                "price": 128.0,
+                "image": "./images/1-2.jpg"
+            },
+            {
+                "id": "cat_3",
+                "shop": "西贝 XIBEI",
+                "city": "兰州七里河区兰州中心 Lanzhou Center, Qilihe District, Lanzhou",
+                "product": "金银蒜蓉粉丝虾 Steamed Garlic Shrimp with Vermicelli",
+                "price": 59.0,
+                "image": "./images/1-3.jpg"
+            },
+            {
+                "id": "cat_4",
+                "shop": "新荣记 XINRONGJI",
+                "city": "上海黄浦区BFC外滩金融中心 BFC Bund Finance Center, Huangpu District, Shanghai",
+                "product": "溏心熟醉富贵虾 Drunken Mantis Shrimp with Amber Wine",
+                "price": 1580.0,
+                "image": "./images/1-4.jpg"
+            },
+            {
+                "id": "cat_5",
+                "shop": "太二酸菜鱼 Tai Er",
+                "city": "广州海珠区乐峰广场 Lefeng Square, Haizhu District, Guangzhou",
+                "product": "招牌鲈鱼酸菜鱼 Sea Bass and Pickled Cabbage Fish",
+                "price": 118.0,
+                "image": "./images/1-5.jpg"
+            },
+            {
+                "id": "cat_6",
+                "shop": "西堤牛排 TASTY",
+                "city": "武汉洪山区群光广场 Qunguang Square, Hongshan District, Wuhan",
+                "product": "超级T骨牛排 Super T-Bone Steak",
+                "price": 368.0,
+                "image": "./images/1-6.jpg"
+            },
+            {
+                "id": "cat_7",
+                "shop": "徐记海鲜 Xu Ji Seafood",
+                "city": "西安新城区钟楼 Bell Tower, Xincheng District, Xi'an",
+                "product": "清蒸东星斑 Steamed Miniatus Grouper",
+                "price": 598.0,
+                "image": "./images/1-7.jpg"
+            },
+            {
+                "id": "cat_8",
+                "shop": "塔克钟 Taco Bell",
+                "city": "苏州工业园区时代广场 Times Square, Industrial Park District, Suzhou",
+                "product": "金奖芝士土豆鸡肉烤饼 Cheese, Potato and Chicken Scones (Gold Award)",
+                "price": 26.0,
+                "image": "./images/1-8.jpg"
+            }
+        ]
+    },
+    "clothing": {
+        "title": "服装行业 (Clothing)",
+        "items": [
+            {
+                "id": "clo_1",
+                "shop": "优衣库 UNIQLO",
+                "city": "uniqlo.cn",
+                "product": "PUFFTECH空气棉服便携式背心 PUFFTECH Portable Air Cotton Jacket Vest",
+                "price": 299.0,
+                "image": "./images/2-1.jpg"
+            },
+            {
+                "id": "clo_2",
+                "shop": "飒拉 ZARA",
+                "city": "zara.cn",
+                "product": "羊毛混纺面料宽松版型提花条纹外套 Loose-Fitting Jacquard Striped Coat Made of Wool Blend Fabric",
+                "price": 1799.0,
+                "image": "./images/2-2.jpg"
+            },
+            {
+                "id": "clo_3",
+                "shop": "Hennes & Mauritz AB (H&M)",
+                "city": "hm.com",
+                "product": "绉织垂褶缎质上衣 Crepe Pleated Satin Blouse",
+                "price": 799.0,
+                "image": "./images/2-3.jpg"
+            },
+            {
+                "id": "clo_4",
+                "shop": "耐克 NIKE",
+                "city": "nike.com.cn",
+                "product": "空军一号滑板鞋 Nike SB Air Force 1 Skateboard Shoes",
+                "price": 899.0,
+                "image": "./images/2-4.jpg"
+            },
+            {
+                "id": "clo_5",
+                "shop": "阿迪达斯 ADIDAS",
+                "city": "adidas.com.cn",
+                "product": "SUPERSTAR II经典贝壳头板鞋 SUPERSTAR II Classic Shell-Toe Sneakers",
+                "price": 999.0,
+                "image": "./images/2-5.jpg"
+            },
+            {
+                "id": "clo_6",
+                "shop": "露露乐蒙 Lululemon",
+                "city": "shop.lululemon.com",
+                "product": "Align运动阔腿裤 Align Sport Wide-Leg Pants",
+                "price": 1080.0,
+                "image": "./images/2-6.jpg"
+            },
+            {
+                "id": "clo_7",
+                "shop": "博柏利 Burberry",
+                "city": "burberry.cn",
+                "product": "肯辛顿经典版型中长款Heritage Trench风衣（100%棉 & 100%皮革扣环）Kensington Classic Style Mid-Length Heritage Trench Coat (100% Cotton & 100% Leather Buckle)",
+                "price": 21600.0,
+                "image": "./images/2-7.jpg"
+            },
+            {
+                "id": "clo_8",
+                "shop": "江南布衣 JNBY",
+                "city": "cn.jnby.com",
+                "product": "麻纤维混纺宽松七分裤 Loose Capri Pants Made of Linen Fiber Blend",
+                "price": 1195.0,
+                "image": "./images/2-8.jpg"
+            }
+        ]
+    },
+    "hospitality": {
+        "title": "酒店行业 (Hospitality)",
+        "items": [
+            {
+                "id": "hos_1",
+                "shop": "康莱德 Conrad",
+                "city": "北京朝阳区东三环北路 East Third Ring Road North, Chaoyang District, Beijing",
+                "product": "超级豪华双床房 Super Deluxe Twin Room",
+                "price": 1727.0,
+                "image": "./images/3-1.jpg"
+            },
+            {
+                "id": "hos_2",
+                "shop": "香格里拉 Shangri-La",
+                "city": "上海浦东新区富城路 Fucheng Road, Pudong New District, Shanghai",
+                "product": "浦江楼豪华外滩景观大床房 Deluxe King-Size Bed Room with a view of the Bund at Pujiang Tower",
+                "price": 1458.0,
+                "image": "./images/3-2.jpg"
+            },
+            {
+                "id": "hos_3",
+                "shop": "JW万豪 JW Marriott",
+                "city": "香港中西区太古广场 Taikoo Place, Central and Western District, Hongkong",
+                "product": "尊贵海景特大床客房 Deluxe Sea View Super King-Size Bed Room",
+                "price": 2889.0,
+                "image": "./images/3-3.jpg"
+            },
+            {
+                "id": "hos_4",
+                "shop": "希尔顿 Hilton",
+                "city": "三亚吉阳区亚龙湾国家旅游度假区湾月路 Wanyue Road, Yalong Bay National Tourist Resort, Jiyang District, Sanya",
+                "product": "花园泳池双床房 Twin Room with Garden and Pool",
+                "price": 1458.0,
+                "image": "./images/3-4.jpg"
+            },
+            {
+                "id": "hos_5",
+                "shop": "亚朵 Atour",
+                "city": "成都锦江区一环路东5段 East Section 5, First Ring Road, Jinjiang District, Chengdu",
+                "product": "高级大床房 Superior King-size Bed Room",
+                "price": 399.0,
+                "image": "./images/3-5.jpg"
+            },
+            {
+                "id": "hos_6",
+                "shop": "麗枫 Lavande",
+                "city": "昆明西山区人民西路 Renmin West Road, Xishan District, Kunming",
+                "product": "豪华套房 Deluxe Suite",
+                "price": 468.0,
+                "image": "./images/3-6.jpg"
+            },
+            {
+                "id": "hos_7",
+                "shop": "如家 Home Inn",
+                "city": "沈阳和平区南京南街 Nanjing South Street, Heping District, Shenyang",
+                "product": "商务大床间 Business King-Size Bed Room",
+                "price": 184.0,
+                "image": "./images/3-7.jpg"
+            },
+            {
+                "id": "hos_8",
+                "shop": "汉庭 Hanting",
+                "city": "银川兴庆区民生巷鼓楼中心 Drum Tower Center, Minsheng Lane, Xingqing District, Yinchuan",
+                "product": "高级双床房 Superior Twin Room",
+                "price": 297.0,
+                "image": "./images/3-8.jpg"
+            }
+        ]
+    },
+    "cultural": {
+        "title": "文创行业 (Cultural Creativity)",
+        "items": [
+            {
+                "id": "cul_1",
+                "shop": "泡泡玛特 POP MART",
+                "city": "popmart.com.cn",
+                "product": "THE MONSTERS驯龙高手无牙仔手办（15.8*17.5cm）THE MONSTERS How to Train Your Dragon - Toothless Figurine (15.8*17.5cm)",
+                "price": 699.0,
+                "image": "./images/4-1.jpg"
+            },
+            {
+                "id": "cul_2",
+                "shop": "52TOYS",
+                "city": "52toys.com",
+                "product": "BEASTBOX猛兽匣系列狂想曲 （10cm）BEASTBOX Rhapsody (10cm)",
+                "price": 128.0,
+                "image": "./images/4-2.jpg"
+            },
+            {
+                "id": "cul_3",
+                "shop": "乐高 LEGO",
+                "city": "lego.com",
+                "product": "哈利波特霍格沃茨城堡和庭院（2,660块）Harry Potter - Hogwarts Castle and Courtyards (2,660 Pieces)",
+                "price": 1399.0,
+                "image": "./images/4-3.jpg"
+            },
+            {
+                "id": "cul_4",
+                "shop": "Moleskine",
+                "city": "moleskine.com",
+                "product": "指环王魔戒联名横间内页笔记本礼盒 The Lord of the Rings - Horizontal Bar Inner Page Notebook Gift Box",
+                "price": 330.0,
+                "image": "./images/4-4.jpg"
+            },
+            {
+                "id": "cul_5",
+                "shop": "铜师傅 TONGSHIFU",
+                "city": "tongshifu.com",
+                "product": "漫威系列蜘蛛侠限量铜手办（大号）MARVEL Limited Copper Figurine of Spider-Man (Large-Size)",
+                "price": 2999.0,
+                "image": "./images/4-5.jpg"
+            },
+            {
+                "id": "cul_6",
+                "shop": "名创优品 MINISO",
+                "city": "miniso.com",
+                "product": "Chiikawa系列朋克双饮TRITAN杯520mL（飞鼠）Chiikawa Punk Style Two-Way TRITAN Tumbler 520mL (Momonga)",
+                "price": 79.9,
+                "image": "./images/4-6.jpg"
+            },
+            {
+                "id": "cul_7",
+                "shop": "無印良品 MUJI",
+                "city": "muji.com",
+                "product": "上海自然博物馆联名“自然有能量”扩香晶石礼盒 Shanghai Natural History Museum - \"Nature Has Energy\" Diffuser Crystal Gift Set",
+                "price": 298.0,
+                "image": "./images/4-7.jpg"
+            },
+            {
+                "id": "cul_8",
+                "shop": "酷乐潮玩",
+                "city": "exdl.cn",
+                "product": "迪士尼小熊维尼单肩托特包（30*9*27.5cm）Disney Winnie the Pooh - Shoulder Tote Bag (30*9*27.5cm)",
+                "price": 199.0,
+                "image": "./images/4-8.jpg"
+            }
+        ]
+    }
+}; // <-- 替换这一行即可
+        // ==========================================
+
+        let currentSelectedItem = null;
+        const openedItems = new Set();
+        const revealedItems = new Set();
+        let scrambledCurrentItems = [];
+
+        // ==========================================
+        // 核心功能：基于刷新的动态循环推演算法
+        // ==========================================
+        
+        // 1. 读取当前的刷新/推演次数
+        let shiftCount = parseInt(sessionStorage.getItem('blindBoxShiftCount') || '0');
+        
+        // 2. 如果页面已经初始化过了，说明这是一次“刷新”，推演次数 + 1
+        if (sessionStorage.getItem('isInitialized')) {
+            shiftCount += 1;
+            sessionStorage.setItem('blindBoxShiftCount', shiftCount);
+        } else {
+            // 如果是第一次打开网页，初始化为 0（不移位）
+            sessionStorage.setItem('isInitialized', 'true');
+            sessionStorage.setItem('blindBoxShiftCount', '0');
+        }
+        
+        // 更新左下角的提示，让主持人心里有数
+        document.getElementById('shiftStatusInfo').innerText = `当前盲盒推演轮数: ${shiftCount}`;
+
+        // 3. 动态置换算法 (执行 shiftCount 次你规定的移位逻辑)
+        function applyDynamicPermutation(originalItems) {
+            if (!originalItems || originalItems.length < 8) return originalItems;
+            
+            let items = [...originalItems]; // 复制初始数据
+            
+            // 刷新了几次，就循环推演几次
+            for(let step = 0; step < shiftCount; step++) {
+                let nextRound = new Array(8);
+                // 严格遵守你的置换公式 (注意 JS 数组索引是从 0 开始的)
+                nextRound[6] = items[0]; // 当前产品1(0) -> 变新轮产品7(6)
+                nextRound[5] = items[1]; // 当前产品2(1) -> 变新轮产品6(5)
+                nextRound[4] = items[2]; // 当前产品3(2) -> 变新轮产品5(4)
+                nextRound[0] = items[3]; // 当前产品4(3) -> 变新轮产品1(0)
+                nextRound[7] = items[4]; // 当前产品5(4) -> 变新轮产品8(7)
+                nextRound[1] = items[5]; // 当前产品6(5) -> 变新轮产品2(1)
+                nextRound[3] = items[6]; // 当前产品7(6) -> 变新轮产品4(3)
+                nextRound[2] = items[7]; // 当前产品8(7) -> 变新轮产品3(2)
+                
+                items = nextRound; // 完成一次全员大挪移，成为下一轮的起点
+            }
+            return items;
+        }
+
+        // ==========================================
+
+        function showView(viewId) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            document.getElementById('backToIndustryBtn').style.display = viewId === 'options-view' ? 'block' : 'none';
+        }
+
+        function enterIndustry(industryKey) {
+            const industryData = gameData[industryKey];
+            if(!industryData) { alert("此行业暂无数据，请检查 Excel 转换是否成功！"); return; }
+            
+            document.getElementById('current-industry-title').innerText = industryData.title;
+            
+            // 获取移位后的最新产品顺序
+            scrambledCurrentItems = applyDynamicPermutation(industryData.items);
+            
+            renderGrid();
+            showView('options-view');
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('products-container');
+            container.innerHTML = '';
+
+            scrambledCurrentItems.forEach((item, index) => {
+                const boxNumber = index + 1;
+                const isOpened = openedItems.has(item.id);
+                const isRevealed = revealedItems.has(item.id);
+
+                const cardWrapper = document.createElement('div');
+
+                if (!isOpened) {
+                    cardWrapper.className = "blind-box";
+                    cardWrapper.onclick = () => openBlindBox(item.id);
+                    cardWrapper.innerHTML = `
+                        <div class="blind-box-question">?</div>
+                        <div class="blind-box-title">盲盒 0${boxNumber}</div>
+                    `;
+                } else {
+                    cardWrapper.className = `product-card ${isRevealed ? 'revealed' : ''}`;
+                    cardWrapper.onclick = () => selectProduct(item);
+
+                    let imgHtml = item.image ? 
+                        `<img src="${item.image}" alt="产品图">` : 
+                        `<div style="color:#666; padding-top:70px; text-align:center;">暂无图片</div>`;
+
+                    cardWrapper.innerHTML = `
+                        <div class="product-img-holder">
+                            ${imgHtml}
+                            <div class="tag-num">${isRevealed ? '已揭晓价格' : '盲盒 0' + boxNumber + ' · 已解锁'}</div>
+                        </div>
+                        <div class="product-info">
+                            <div class="product-meta">
+                                <span class="product-shop">${item.shop}</span>
+                                <span class="product-city">${item.city}</span>
+                            </div>
+                            <div class="product-name">${item.product}</div>
+                        </div>
+                    `;
+                }
+                container.appendChild(cardWrapper);
+            });
+        }
+
+        function openBlindBox(itemId) {
+            openedItems.add(itemId);
+            renderGrid();
+        }
+
+        function selectProduct(item) {
+            currentSelectedItem = item;
+            document.getElementById('modalTargetDetails').innerHTML = `
+                <div style="font-size: 14px; margin-bottom: 5px;"><strong>品牌：</strong>${item.shop} | <strong>来源：</strong>${item.city}</div>
+                <div style="font-size: 18px; font-weight: 700; color: #fff;">${item.product}</div>
+            `;
+            document.getElementById('playerBid').value = '';
+            document.getElementById('revealBox').style.display = 'none';
+            document.getElementById('initialActions').style.display = 'flex';
+            document.getElementById('hostModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('hostModal').classList.remove('active');
+            currentSelectedItem = null;
+        }
+
+        function confirmAndReveal() {
+            if (!currentSelectedItem) return;
+            const playerBidVal = parseFloat(document.getElementById('playerBid').value);
+            if (isNaN(playerBidVal)) { alert('请输入选手的实际报价！'); return; }
+
+            const realPrice = currentSelectedItem.price;
+            const diff = Math.abs(playerBidVal - realPrice).toFixed(2);
+            
+            document.getElementById('realPriceVal').innerText = realPrice.toFixed(2);
+            document.getElementById('resultAnalysisText').innerHTML = `
+                <div>选手最终报价：<strong>¥ ${playerBidVal.toFixed(2)}</strong></div>
+                <div style="margin-top: 10px; font-size: 16px;">绝对价格偏差：<span style="color: var(--accent-warning);">¥ ${diff}</span></div>
+            `;
+            
+            revealedItems.add(currentSelectedItem.id);
+            renderGrid();
+
+            document.getElementById('initialActions').style.display = 'none';
+            document.getElementById('revealBox').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

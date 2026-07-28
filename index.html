@@ -118,7 +118,7 @@
         .reveal-box { display: none; text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--border-color); }
         .price-big { font-size: 36px; font-weight: 900; color: var(--accent-success); margin: 10px 0; }
         
-        /* 调试/状态提示小组件（仅主持人可见，可删除） */
+        /* 状态提示 */
         .status-badge {
             position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.6); 
             padding: 8px 12px; border-radius: 20px; font-size: 12px; color: var(--text-muted);
@@ -199,8 +199,6 @@
     <div class="status-badge" id="shiftStatusInfo">当前盲盒推演轮数: 0</div>
 
     <script>
-        // ==========================================
-        // 【请把 output_for_html.txt 里面的代码粘贴替换到这里】
         const gameData = {
     "catering": {
         "title": "餐饮行业 (Catering)",
@@ -478,59 +476,45 @@
             }
         ]
     }
-}; // <-- 替换这一行即可
-        // ==========================================
+};
 
         let currentSelectedItem = null;
         const openedItems = new Set();
         const revealedItems = new Set();
         let scrambledCurrentItems = [];
 
-        // ==========================================
-        // 核心功能：基于刷新的动态循环推演算法
-        // ==========================================
-        
-        // 1. 读取当前的刷新/推演次数
         let shiftCount = parseInt(sessionStorage.getItem('blindBoxShiftCount') || '0');
         
-        // 2. 如果页面已经初始化过了，说明这是一次“刷新”，推演次数 + 1
         if (sessionStorage.getItem('isInitialized')) {
             shiftCount += 1;
             sessionStorage.setItem('blindBoxShiftCount', shiftCount);
         } else {
-            // 如果是第一次打开网页，初始化为 0（不移位）
             sessionStorage.setItem('isInitialized', 'true');
             sessionStorage.setItem('blindBoxShiftCount', '0');
         }
         
-        // 更新左下角的提示，让主持人心里有数
         document.getElementById('shiftStatusInfo').innerText = `当前盲盒推演轮数: ${shiftCount}`;
 
-        // 3. 动态置换算法 (执行 shiftCount 次你规定的移位逻辑)
         function applyDynamicPermutation(originalItems) {
             if (!originalItems || originalItems.length < 8) return originalItems;
             
-            let items = [...originalItems]; // 复制初始数据
+            let items = [...originalItems];
             
-            // 刷新了几次，就循环推演几次
             for(let step = 0; step < shiftCount; step++) {
                 let nextRound = new Array(8);
-                // 严格遵守你的置换公式 (注意 JS 数组索引是从 0 开始的)
-                nextRound[6] = items[0]; // 当前产品1(0) -> 变新轮产品7(6)
-                nextRound[5] = items[1]; // 当前产品2(1) -> 变新轮产品6(5)
-                nextRound[4] = items[2]; // 当前产品3(2) -> 变新轮产品5(4)
-                nextRound[0] = items[3]; // 当前产品4(3) -> 变新轮产品1(0)
-                nextRound[7] = items[4]; // 当前产品5(4) -> 变新轮产品8(7)
-                nextRound[1] = items[5]; // 当前产品6(5) -> 变新轮产品2(1)
-                nextRound[3] = items[6]; // 当前产品7(6) -> 变新轮产品4(3)
-                nextRound[2] = items[7]; // 当前产品8(7) -> 变新轮产品3(2)
+                nextRound[6] = items[0];
+                nextRound[5] = items[1];
+                nextRound[4] = items[2];
+                nextRound[0] = items[3];
+                nextRound[7] = items[4];
+                nextRound[1] = items[5];
+                nextRound[3] = items[6];
+                nextRound[2] = items[7];
                 
-                items = nextRound; // 完成一次全员大挪移，成为下一轮的起点
+                items = nextRound;
             }
             return items;
         }
-
-        // ==========================================
 
         function showView(viewId) {
             document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
@@ -543,8 +527,6 @@
             if(!industryData) { alert("此行业暂无数据，请检查 Excel 转换是否成功！"); return; }
             
             document.getElementById('current-industry-title').innerText = industryData.title;
-            
-            // 获取移位后的最新产品顺序
             scrambledCurrentItems = applyDynamicPermutation(industryData.items);
             
             renderGrid();
@@ -623,12 +605,15 @@
             if (isNaN(playerBidVal)) { alert('请输入选手的实际报价！'); return; }
 
             const realPrice = currentSelectedItem.price;
-            const diff = Math.abs(playerBidVal - realPrice).toFixed(2);
+            
+            // 计算偏差百分比，并保留 2 位小数
+            const diff = Math.abs(playerBidVal - realPrice);
+            const percentageDiff = realPrice > 0 ? ((diff / realPrice) * 100).toFixed(2) : '0.00';
             
             document.getElementById('realPriceVal').innerText = realPrice.toFixed(2);
             document.getElementById('resultAnalysisText').innerHTML = `
                 <div>选手最终报价：<strong>¥ ${playerBidVal.toFixed(2)}</strong></div>
-                <div style="margin-top: 10px; font-size: 16px;">绝对价格偏差：<span style="color: var(--accent-warning);">¥ ${diff}</span></div>
+                <div style="margin-top: 10px; font-size: 16px;">价格偏差比例：<span style="color: var(--accent-warning);">${percentageDiff}%</span></div>
             `;
             
             revealedItems.add(currentSelectedItem.id);
